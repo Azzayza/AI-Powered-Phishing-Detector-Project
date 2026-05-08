@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Phishing Detector</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f111a;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --accent-glow: rgba(99, 102, 241, 0.4);
+            --safe-color: #10b981;
+            --phish-color: #ef4444;
+            --promo-color: #f59e0b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(79, 70, 229, 0.15), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(236, 72, 153, 0.15), transparent 25%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 700px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 3rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            position: relative;
+            z-index: 10;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            border-radius: 24px 24px 0 0;
+            z-index: -1;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #e0e7ff, #6366f1, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+        }
+
+        p.subtitle {
+            color: var(--text-muted);
+            font-weight: 300;
+            font-size: 1.1rem;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 1rem;
+            resize: none;
+            transition: all 0.3s ease;
+            line-height: 1.5;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: rgba(99, 102, 241, 0.5);
+            background: rgba(0, 0, 0, 0.3);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        textarea::placeholder {
+            color: rgba(148, 163, 184, 0.5);
+        }
+
+        button {
+            width: 100%;
+            padding: 1.25rem;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::after {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: all 0.5s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        button:hover::after {
+            left: 100%;
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        /* Results Panel */
+        .results-panel {
+            margin-top: 2rem;
+            padding: 2rem;
+            border-radius: 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            display: none;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .results-panel.visible {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+            animation: fadeIn 0.6s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .status-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .status-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 0 20px currentColor;
+        }
+
+        .status-header.phishing {
+            color: var(--phish-color);
+        }
+
+        .status-header.safe {
+            color: var(--safe-color);
+        }
+
+        .status-header.promotional {
+            color: var(--promo-color);
+        }
+
+        .status-title {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -0.01em;
+        }
+
+        .confidence-section {
+            margin-bottom: 2rem;
+        }
+
+        .confidence-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 4px;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .phishing .progress-fill {
+            background: linear-gradient(90deg, #f87171, #ef4444);
+            box-shadow: 0 0 10px #ef4444;
+        }
+
+        .safe .progress-fill {
+            background: linear-gradient(90deg, #34d399, #10b981);
+            box-shadow: 0 0 10px #10b981;
+        }
+
+        .promotional .progress-fill {
+            background: linear-gradient(90deg, #fcd34d, #f59e0b);
+            box-shadow: 0 0 10px #f59e0b;
+        }
+
+        .features-section h4 {
+            font-size: 1rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            font-weight: 400;
+        }
+
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .tag {
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #c4b5fd;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            animation: slideIn 0.3s ease forwards;
+            opacity: 0;
+            transform: translateX(-10px);
+        }
+
+        @keyframes slideIn {
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .loading-spinner {
+            display: none;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>AI Phishing Detector</h1>
+            <p class="subtitle">State-of-the-art ML threat analysis</p>
+        </header>
+
+        <div class="input-group">
+            <textarea id="emailInput" placeholder="Paste the suspicious email contents here..."></textarea>
+        </div>
+
+        <button id="analyzeBtn" onclick="analyzeEmail()">
+            <span id="btnText">Analyze Threat Level</span>
+            <div id="spinner" class="loading-spinner"></div>
+        </button>
+
+        <div id="resultsPanel" class="results-panel">
+            <div id="statusHeader" class="status-header">
+                <div id="statusIcon" class="status-icon"></div>
+                <div class="status-title" id="statusTitle"></div>
+            </div>
+
+            <div class="confidence-section">
+                <div class="confidence-header">
+                    <span>Confidence Score</span>
+                    <span id="confidenceRatio">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+            </div>
+
+            <div class="features-section">
+                <h4>Key Indicators Detected</h4>
+                <div id="tagsContainer" class="tags-container">
+                    <!-- Tags go here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function analyzeEmail() {
+            const text = document.getElementById('emailInput').value.trim();
+            if (!text) return;
+
+            // UI State loading
+            const btn = document.getElementById('analyzeBtn');
+            const btnText = document.getElementById('btnText');
+            const spinner = document.getElementById('spinner');
+            const resultsPanel = document.getElementById('resultsPanel');
+            const fill = document.getElementById('progressFill');
+            
+            btn.disabled = true;
+            btnText.style.display = 'none';
+            spinner.style.display = 'block';
+            resultsPanel.classList.remove('visible');
+            fill.style.width = '0%';
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email_text: text })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayResults(data);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (err) {
+                alert('Connection error. Is the API running?');
+            } finally {
+                // Restore UI state
+                btn.disabled = false;
+                btnText.style.display = 'block';
+                spinner.style.display = 'none';
+            }
+        }
+
+        function displayResults(data) {
+            const panel = document.getElementById('resultsPanel');
+            const header = document.getElementById('statusHeader');
+            const title = document.getElementById('statusTitle');
+            const icon = document.getElementById('statusIcon');
+            const fill = document.getElementById('progressFill');
+            const ratioText = document.getElementById('confidenceRatio');
+            const tagsBox = document.getElementById('tagsContainer');
+
+            // Reset classes
+            header.className = 'status-header';
+            
+            const label = data.label_name || (data.is_phishing ? 'phishing' : 'safe');
+            const percentage = (data.confidence * 100).toFixed(1);
+            
+            if (label === 'phishing') {
+                header.classList.add('phishing');
+                title.textContent = 'Phishing Detected';
+                icon.innerHTML = '⚠️';
+            } else if (label === 'promotional') {
+                header.classList.add('promotional');
+                title.textContent = 'Promotional / Marketing';
+                icon.innerHTML = '📢';
+            } else {
+                header.classList.add('safe');
+                title.textContent = 'Looks Safe';
+                icon.innerHTML = '🛡️';
+            }
+
+            ratioText.textContent = percentage + '%';
+            
+            // Build tags
+            tagsBox.innerHTML = '';
+            if (data.explanations && data.explanations.top_features && data.explanations.top_features.influencing_words) {
+                const words = Object.entries(data.explanations.top_features.influencing_words);
+                words.sort((a,b) => Math.abs(b[1]) - Math.abs(a[1]));
+                
+                words.forEach((entry, idx) => {
+                    const tag = document.createElement('div');
+                    tag.className = 'tag';
+                    tag.style.animationDelay = `${idx * 0.1}s`;
+                    const influence = (label === 'phishing') ? (entry[1] > 0 ? '+' : '-') : (entry[1] < 0 ? '+' : '-');
+                    tag.innerHTML = `<span>${entry[0]}</span> <span style="opacity:0.5; font-size:0.75rem">${influence}</span>`;
+                    tagsBox.appendChild(tag);
+                });
+            }
+            if(tagsBox.children.length === 0) {
+                tagsBox.innerHTML = '<span style="color:var(--text-muted); font-size:0.9rem">No significant keywords extracted.</span>';
+            }
+
+            // Animate in
+            panel.classList.add('visible');
+            
+            // Allow DOM to update before triggering transition
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    fill.style.width = percentage + '%';
+                }, 50);
+            });
+        }
+    </script>
+</body>
+</html>
